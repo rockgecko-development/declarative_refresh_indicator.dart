@@ -4,6 +4,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+/// The duration of the animation to show the refresh indicator.
+/// Similar to the RefreshIndicator widget.
+const kIndicatorSnapDuration = Duration(milliseconds: 150);
+
 /// A declarative [RefreshIndicator] alternative.
 ///
 /// The API is inspired by [Switch] and [Checkbox]:
@@ -131,22 +135,30 @@ class _DeclarativeRefreshIndicatorState
     super.initState();
     // If the indicator should be shown initially, show it.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.refreshing) _show();
+      if (widget.refreshing && !_showing) {
+        _show();
+      } else if (!widget.refreshing && _showing) {
+        _hide();
+      }
     });
   }
 
   @override
   void didUpdateWidget(DeclarativeRefreshIndicator oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the [refreshing] field has not changed, do nothing.
-    if (oldWidget.refreshing == widget.refreshing) return;
-    // Otherwise, update the indicator accordingly.
     if (widget.refreshing) {
       // The indicator may have been shown already, if it was shown
       // interactively. If it hasn't, show it now.
       if (!_showing) _show();
     } else {
-      _hide();
+      if (_showing) return _hide();
+      // Wait for the indicator showing animation to finish before hiding
+      // it if necessary.
+      Future.delayed(kIndicatorSnapDuration, () {
+        if (mounted && _showing && !widget.refreshing) {
+          _hide();
+        }
+      });
     }
   }
 
@@ -162,7 +174,7 @@ class _DeclarativeRefreshIndicatorState
     // The completer should not exist at this point.
     // It's created here, and must complete before this callback can be
     // called again.
-    assert(_completer == null);
+    assert(_completer == null, 'The completer should not exist');
 
     // Create the completer and use it.
     final completer = Completer<void>();
